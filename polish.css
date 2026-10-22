@@ -32,3 +32,20 @@ nav{gap:6px;margin-bottom:12px}nav button{min-height:44px;font-size:0;padding:8p
 /* Code glyphs must distinguish capital I from lowercase l on desktop and phone. */
 .answer-code,.code-label,.lettercues b{font-family:"DejaVu Sans Mono","Liberation Mono",Menlo,Consolas,"Courier New",monospace!important;font-variant-ligatures:none;letter-spacing:.035em}
 .inputrow input:disabled{opacity:1;-webkit-text-fill-color:#163e3a;color:#163e3a}
+
+/* One uniform plane for both supplied chemistry and saved 1100×600 strokes. */
+.drawpanel .canvaswrap{height:280px;container-type:size;background-color:#fffef9;background-image:radial-gradient(#e4e5dc .8px,transparent .8px);background-size:18px 18px}
+.drawing-surface{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:min(100cqw,calc((100cqh - 24px) * 11 / 6));height:min(calc(100cqh - 24px),calc(100cqw * 6 / 11))}
+.drawpanel .drawing-surface canvas{width:100%;height:100%;background-image:none}.drawing-surface .backbone-scaffold{width:100%;height:100%}
+@media(min-width:1100px){.drawpanel .canvaswrap{height:330px}}
+@media(max-width:700px){.drawpanel .canvaswrap,.drawlayout.comparing .canvaswrap{height:270px}.drawpanel .drawing-surface canvas{height:100%}}
+.questguide+.drawpanel .canvaswrap{height:clamp(230px,calc(100dvh - 450px),300px)}
+@media(max-width:700px){.questguide+.drawpanel .canvaswrap{height:220px}}
+/* A visible paper edge distinguishes the drawable area from its surrounding mat. */
+.drawpanel .canvaswrap{background:#e9e7de;background-image:none}.drawing-surface{background:#fffef9;background-image:radial-gradient(#dde1d5 .8px,transparent .8px);background-size:18px 18px;outline:1px solid #cdd2c7;box-shadow:0 2px 7px #33405212}
+@media(max-width:700px){.drawpanel .sketchside{container-type:inline-size}.drawpanel .canvaswrap,.questguide+.drawpanel .canvaswrap{height:calc(100cqw * 6 / 11 + 30px)}}
+
+/* Extra supplied-atom headroom; the editable canvas retains its original coordinates. */
+.drawing-surface.scaffolded{width:min(100cqw,calc((100cqh - 24px) * 11 / 7));height:min(calc(100cqh - 24px),calc(100cqw * 7 / 11))}
+.drawpanel .drawing-surface.scaffolded canvas{position:absolute;left:0;bottom:0;height:calc(100% * 6 / 7)}
+@media(max-width:700px){.drawpanel .canvaswrap:has(.scaffolded),.questguide+.drawpanel .canvaswrap:has(.scaffolded){height:calc(100cqw * 7 / 11 + 30px)}}
