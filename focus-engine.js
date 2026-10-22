@@ -39,7 +39,7 @@
     const legacySupportAt = Math.max(hintAt(t), hintAt(choice));
     const legacyBadAt = Math.max(...[t, choice].map(record => number(record.wrong) > 0 && number(record.streak) === 0 ? number(record.lastAttempt) : 0));
     const unknownLegacyMiss = [t, choice].some(record => number(record.wrong) > 0 && number(record.streak) === 0 && !number(record.lastAttempt));
-    let ready = false, at = 0, weak = false;
+    let ready = false, at = 0, weak = false, problemAt = 0;
     if (known(tr) || known(cr)) {
       // Ordinary hint totals have no timestamp of their own: lastExposure
       // also advances on clean-answer feedback. Prefer each format's support
@@ -49,6 +49,7 @@
       ready = !unknownLegacyMiss && known(tr) && tr.lastOutcome === 'correct' && tr.lastAssisted === false && number(tr.cleanRun) > 0 && fresh(tr.lastAt, now) && (!supportAt || tr.lastAt > supportAt) && (!blockedAt || tr.lastAt > blockedAt);
       at = ready ? tr.lastAt : 0;
       weak = !ready && (supportAt > 0 || blockedAt > 0 || unknownLegacyMiss);
+      problemAt = Math.max(supportAt, blockedAt);
     } else {
       const supportAt = legacySupportAt, badAt = legacyBadAt;
       // A zero-timestamp legacy miss is uncertain, not proof it preceded a win.
@@ -56,34 +57,80 @@
       ready = number(t.right) > 0 && number(t.streak) > 0 && fresh(t.lastAttempt, now) && !unknownMiss && (!supportAt || t.lastAttempt > supportAt) && (!badAt || t.lastAttempt > badAt);
       at = ready ? t.lastAttempt : 0;
       weak = !ready && (supportAt > 0 || badAt > 0 || unknownMiss);
+      problemAt = Math.max(supportAt, badAt);
     }
     const due = isDue(item, kind, now);
-    return { ready: !!ready && !due, at, weak, due };
+    return { ready: !!ready && !due, at, weak, due, problemAt };
   }
-  function suggestTrio({ items, fluency, now = Date.now(), random = Math.random } = {}) {
-    if (!time(now) || typeof random !== 'function') throw new TypeError('Invalid Focus planning input');
-    const entries = pool(items);
+  function validateHistory(raw) {
+    try {
+      if (!object(raw) || Object.keys(raw).length > 20) return null;
+      const result = {};
+      for (const code of Object.keys(raw)) {
+        if (!CODES.has(code) || !object(raw[code])) return null;
+        result[code] = {};
+        for (const kind of KINDS) {
+          const cell = raw[code][kind];
+          if (!object(cell) || typeof cell.done !== 'boolean' || !time(cell.lastAt) || ![null, 'prior', 'practice', 'history'].includes(cell.source) || (cell.done ? !cell.lastAt || cell.source === null : cell.source !== null) || (cell.source === 'prior' && !RECALL.includes(kind))) return null;
+          const needsRetry = cell.needsRetry === undefined ? !cell.done && cell.lastAt > 0 : cell.needsRetry;
+          const otherSince = cell.otherSince === undefined ? 0 : cell.otherSince;
+          if (typeof needsRetry !== 'boolean' || !Number.isInteger(otherSince) || otherSince < 0 || otherSince > 3 || (cell.done && needsRetry) || (!needsRetry && otherSince !== 0)) return null;
+          result[code][kind] = { done: cell.done, lastAt: cell.lastAt, source: cell.source, needsRetry, otherSince };
+        }
+      }
+      return result;
+    } catch (_) { return null; }
+  }
+  function historyCell(cell, item, kind, fluency, now) {
+    if (!cell || cell.lastAt > now) return null;
+    const result = { ...cell };
+    // History records earned practice checks, not permanent mastery. A real
+    // later lapse/help reopens its goal; routine two-minute due time does not.
+    if (RECALL.includes(kind)) {
+      const check = evidence(item, kind, fluency, now);
+      if (check.problemAt > result.lastAt && check.problemAt <= now) return { done: false, lastAt: check.problemAt, source: null, needsRetry: true, otherSince: 0 };
+    }
+    if (result.done) result.source = 'history';
+    return result;
+  }
+  function suggestTrio({ items, fluency, history = {}, excludeCodes = [], now = Date.now(), random = Math.random } = {}) {
+    if (!time(now) || typeof random !== 'function' || !Array.isArray(excludeCodes) || excludeCodes.some(code => !CODES.has(code))) throw new TypeError('Invalid Focus planning input');
+    const entries = pool(items), archive = validateHistory(history);
+    if (!archive) throw new TypeError('Invalid Focus history');
     if (entries.length < 3) throw new TypeError('Focus needs at least three different amino acids');
-    return entries.map((item, index) => {
+    const ranked = entries.map((item, index) => {
       const checks = RECALL.map(kind => evidence(item, kind, fluency, now));
-      const missing = checks.filter(check => !check.ready).length;
-      const familiar = checks.filter(check => check.ready || check.at > 0).length;
-      // A short-session heuristic: close near-ready gaps before committing the
-      // whole session to the three hardest items. Due familiar skills remain
-      // useful, while already-clear recall sets fall behind unfinished ones.
-      const score = !missing ? 0 : (familiar ? 10 + familiar * 2 - missing : 3) + Math.min(3, checks.filter(check => check.weak).length) + Math.min(4, checks.filter(check => check.due).length * 2);
+      const cells = KINDS.map(kind => historyCell(archive[item.code]?.[kind], item, kind, fluency, now));
+      const complete = cells.every(cell => cell?.done);
+      const known = KINDS.filter((kind, i) => cells[i]?.done || !cells[i] && RECALL.includes(kind) && checks[RECALL.indexOf(kind)].at > 0).length;
+      const missing = KINDS.length - known;
+      const score = !archive[item.code] && checks.every(check => check.at > 0) ? 0 : known ? 10 + known * 2 - missing : 3;
       const value = random();
-      return { code: item.code, score, tie: Number.isFinite(value) ? value : index / entries.length };
-    }).sort((a, b) => b.score - a.score || a.tie - b.tie).slice(0, 3).map(item => item.code);
+      return { code: item.code, complete, score: score + Math.min(3, checks.filter(check => check.weak).length), tie: Number.isFinite(value) ? value : index / entries.length };
+    }).sort((a, b) => b.score - a.score || a.tie - b.tie);
+    // Coverage first: previously completed acids are partners only when fewer
+    // than three unfinished acids remain. All-covered is a bounded stop state.
+    const unfinished = ranked.filter(item => !item.complete);
+    if (!unfinished.length) return [];
+    const excluded = new Set(excludeCodes);
+    const outside = unfinished.filter(item => !excluded.has(item.code));
+    const targets = outside.length >= 3 ? outside : [...outside, ...unfinished.filter(item => excluded.has(item.code))];
+    const selected = targets.slice(0, 3).map(item => item.code);
+    const partners = ranked.filter(item => item.complete && !excluded.has(item.code)).concat(ranked.filter(item => item.complete && excluded.has(item.code)));
+    for (const item of partners) if (selected.length < 3) selected.push(item.code);
+    return selected;
   }
-  function createState({ codes, items = [], fluency, now = Date.now() } = {}) {
+  function createState({ codes, items = [], fluency, history = {}, now = Date.now() } = {}) {
     if (!Array.isArray(codes) || codes.length !== 3 || new Set(codes).size !== 3 || codes.some(code => !CODES.has(code)) || !time(now)) throw new TypeError('Focus needs exactly three valid, distinct amino acids');
-    const entries = new Map(pool(items).map(item => [item.code, item]));
+    const entries = new Map(pool(items).map(item => [item.code, item])), archive = validateHistory(history);
+    if (!archive) throw new TypeError('Invalid Focus history');
     const state = { version: VERSION, codes: [...codes], createdAt: now, updatedAt: now, cells: {}, recentIds: [] };
     for (const code of codes) {
       state.cells[code] = {};
       for (const kind of KINDS) {
-        const check = RECALL.includes(kind) ? evidence(entries.get(code) || { code }, kind, fluency, now) : { ready: false, at: 0 };
+        const item = entries.get(code) || { code }, restored = historyCell(archive[code]?.[kind], item, kind, fluency, now);
+        if (restored) { state.cells[code][kind] = restored; continue; }
+        const check = RECALL.includes(kind) ? evidence(item, kind, fluency, now) : { ready: false, at: 0 };
         state.cells[code][kind] = { done: check.ready, lastAt: check.ready ? check.at : 0, source: check.ready ? 'prior' : null, needsRetry: false, otherSince: 0 };
       }
     }
@@ -98,7 +145,7 @@
         cells[code] = {};
         for (const kind of KINDS) {
           const cell = raw.cells[code][kind];
-          if (!object(cell) || typeof cell.done !== 'boolean' || !time(cell.lastAt) || cell.lastAt > raw.updatedAt || ![null, 'prior', 'practice'].includes(cell.source) || (cell.done ? !cell.lastAt || cell.source === null : cell.source !== null) || (cell.source === 'prior' && (!RECALL.includes(kind) || cell.lastAt > raw.createdAt)) || (cell.source === 'practice' && cell.lastAt < raw.createdAt)) return null;
+          if (!object(cell) || typeof cell.done !== 'boolean' || !time(cell.lastAt) || cell.lastAt > raw.updatedAt || ![null, 'prior', 'practice', 'history'].includes(cell.source) || (cell.done ? !cell.lastAt || cell.source === null : cell.source !== null) || (cell.source === 'prior' && (!RECALL.includes(kind) || cell.lastAt > raw.createdAt)) || (cell.source === 'practice' && cell.lastAt < raw.createdAt) || (cell.source === 'history' && cell.lastAt > raw.createdAt)) return null;
           const needsRetry = cell.needsRetry === undefined ? !cell.done && cell.lastAt >= raw.createdAt && cell.lastAt > 0 : cell.needsRetry;
           const otherSince = cell.otherSince === undefined ? 0 : cell.otherSince;
           if (typeof needsRetry !== 'boolean' || !Number.isInteger(otherSince) || otherSince < 0 || otherSince > 3 || (cell.done && needsRetry) || (!needsRetry && otherSince !== 0)) return null;
@@ -192,7 +239,7 @@
     cell.lastAt = outcome.now;
     // Existing prior evidence retains its actual timestamp after recognition;
     // do not relabel a recognition timestamp as a prior typed recall result.
-    if (recognitionOnly && cell.source === 'prior') cell.lastAt = raw.cells[outcome.code][outcome.kind].lastAt;
+    if (recognitionOnly && ['prior', 'history'].includes(cell.source)) cell.lastAt = raw.cells[outcome.code][outcome.kind].lastAt;
     state.updatedAt = Math.max(state.updatedAt, outcome.now);
     state.recentIds = [...state.recentIds, outcome.eventId].slice(-MAX_IDS);
     return state;
@@ -204,7 +251,7 @@
     state.updatedAt = Math.max(state.updatedAt, now);
     return state;
   }
-  const api = Object.freeze({ VERSION, KINDS, FRESH_MS, suggestTrio, createState, validateState, chooseRound, applyOutcome, invalidate, summarize });
+  const api = Object.freeze({ VERSION, KINDS, FRESH_MS, suggestTrio, createState, validateState, validateHistory, chooseRound, applyOutcome, invalidate, summarize });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.AminoFocusEngine = api;
 })(typeof window !== 'undefined' ? window : globalThis);
