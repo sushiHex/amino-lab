@@ -141,7 +141,7 @@
     return reason + (RECALL.includes(stage?.kind) ? stage.answerFormat === 'choice' ? ' Four choices first.' : ' Hard mode: recall without options.' : '');
   }
   function defaultCurrent(kind) {
-    return { assisted: kind === 'draw', hintStage: 0, confidence: null, input: '', answered: false, correct: null, forgeRun: null, paths: [], scaffold: kind === 'draw', shown: false, referenceSeen: false, answerFormat: null, optionIds: [], choiceViewed: false, responseTimer: null, pendingDrawRating: null, earlyReference: false };
+    return { assisted: kind === 'draw', hintStage: 0, confidence: null, input: '', answered: false, correct: null, forgeRun: null, paths: [], scaffold: kind === 'draw', shown: false, referenceSeen: false, answerFormat: null, optionIds: [], choiceViewed: false, responseTimer: null, pendingDrawRating: null, earlyReference: false, drawLayoutVersion: 2 };
   }
   function validateRun(raw, { validateForge, validateTimer } = {}) {
     try {
@@ -202,6 +202,9 @@
         paths.push(path);
       }
       if (active.kind !== 'draw' && (paths.length || c.scaffold || c.shown || referenceSeen)) return null;
+      // Keep existing strokes aligned with the geometry under which they were drawn.
+      const drawLayoutVersion = c.drawLayoutVersion === undefined ? (paths.length ? 1 : 2) : c.drawLayoutVersion;
+      if (!integer(drawLayoutVersion, 1, 2)) return null;
       if (!RECALL.includes(active.kind) && (c.hintStage || c.input || c.confidence !== null)) return null;
       let responseTimer = null;
       if (c.responseTimer !== undefined && c.responseTimer !== null) {
@@ -232,7 +235,7 @@
         const last = results[results.length - 1];
         if (!last || last.correct !== c.correct || last.assisted !== c.assisted || (RECALL.includes(active.kind) && (last.recognition !== (effectiveFormat === 'choice') || (last.recognition && !choiceViewed)))) return null;
       }
-      const current = { assisted: c.assisted, hintStage: c.hintStage, confidence: c.confidence, input: c.input, answered: c.answered, correct: c.correct, forgeRun, paths, scaffold: c.scaffold, shown: c.shown, referenceSeen, answerFormat, optionIds: [...optionIds], choiceViewed, responseTimer, pendingDrawRating, earlyReference };
+      const current = { assisted: c.assisted, hintStage: c.hintStage, confidence: c.confidence, input: c.input, answered: c.answered, correct: c.correct, forgeRun, paths, scaffold: c.scaffold, shown: c.shown, referenceSeen, answerFormat, optionIds: [...optionIds], choiceViewed, responseTimer, pendingDrawRating, earlyReference, drawLayoutVersion };
       return { version: 1, queue, index: raw.index, paused: raw.paused, complete: raw.complete, results, current, rewardStart: raw.rewardStart };
     } catch (_) { return null; }
   }
