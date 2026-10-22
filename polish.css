@@ -45,7 +45,8 @@ nav{gap:6px;margin-bottom:12px}nav button{min-height:44px;font-size:0;padding:8p
 .drawpanel .canvaswrap{background:#e9e7de;background-image:none}.drawing-surface{background:#fffef9;background-image:radial-gradient(#dde1d5 .8px,transparent .8px);background-size:18px 18px;outline:1px solid #cdd2c7;box-shadow:0 2px 7px #33405212}
 @media(max-width:700px){.drawpanel .sketchside{container-type:inline-size}.drawpanel .canvaswrap,.questguide+.drawpanel .canvaswrap{height:calc(100cqw * 6 / 11 + 30px)}}
 
-/* Extra supplied-atom headroom; the editable canvas retains its original coordinates. */
-.drawing-surface.scaffolded{width:min(100cqw,calc((100cqh - 24px) * 11 / 7));height:min(calc(100cqh - 24px),calc(100cqw * 7 / 11))}
-.drawpanel .drawing-surface.scaffolded canvas{position:absolute;left:0;bottom:0;height:calc(100% * 6 / 7)}
-@media(max-width:700px){.drawpanel .canvaswrap:has(.scaffolded),.questguide+.drawpanel .canvaswrap:has(.scaffolded){height:calc(100cqw * 7 / 11 + 30px)}}
+/* Compact supplied-atom headroom; the editable canvas retains its original coordinates. */
+.drawing-surface.scaffolded{width:min(100cqw,calc((100cqh - 24px) * 55 / 32));height:min(calc(100cqh - 24px),calc(100cqw * 32 / 55))}
+.drawpanel .drawing-surface.scaffolded canvas{position:absolute;left:0;bottom:0;height:calc(100% * 15 / 16)}
+@media(max-width:700px){.drawpanel .canvaswrap:has(.scaffolded),.questguide+.drawpanel .canvaswrap:has(.scaffolded){height:calc(100cqw * 32 / 55 + 30px)}}
+@media(max-width:700px){.backbone-scaffold g[font-family]{font-size:48px}.backbone-scaffold tspan{font-size:32px}}
