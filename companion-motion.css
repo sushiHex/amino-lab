@@ -1,0 +1,116 @@
+/* Tiny sprite-frame cycles. Only the main HUD idles; collection portraits stay still. */
+.companion-art { pointer-events: none; }
+.companion-eyes-closed,
+.companion-eyes-happy,
+.companion-smile,
+.companion-bubbles,
+.companion-glint { opacity: 0; }
+
+#companionButton:not(:disabled) .companion-pose {
+  animation: companion-idle 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-eyes-open {
+  animation: companion-blink-open 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-eyes-closed {
+  animation: companion-blink-closed 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-scarf {
+  animation: companion-scarf 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-bubbles { opacity: 1; }
+#companionButton:not(:disabled) .companion-bubble-one,
+#companionButton:not(:disabled) .companion-bubble-two {
+  opacity: 0;
+  animation: companion-bubble 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-bubble-two { animation-delay: 1s; }
+#companionButton:not(:disabled) .companion-crystal {
+  animation: companion-crystal 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-glint {
+  animation: companion-glint 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-star-one {
+  animation: companion-star-one 6.4s steps(1, end) infinite;
+}
+#companionButton:not(:disabled) .companion-star-two {
+  animation: companion-star-two 6.4s steps(1, end) infinite;
+}
+
+/* Replace pixel shapes rather than squash/rotate the whole illustration. */
+@keyframes companion-idle {
+  0%, 64%, 80%, 100% { transform: translateY(0); }
+  68%, 76% { transform: translateY(-1px); }
+}
+@keyframes companion-blink-open {
+  0%, 43%, 47%, 100% { opacity: 1; }
+  44%, 46% { opacity: 0; }
+}
+@keyframes companion-blink-closed {
+  0%, 43%, 47%, 100% { opacity: 0; }
+  44%, 46% { opacity: 1; }
+}
+@keyframes companion-scarf {
+  0%, 62%, 80%, 100% { transform: translateX(0); }
+  66%, 72% { transform: translateX(1px); }
+  76% { transform: translateX(-1px); }
+}
+@keyframes companion-bubble {
+  0%, 14%, 36%, 100% { opacity: 0; transform: translate(0, 2px); }
+  15% { opacity: 1; transform: translate(0, 2px); }
+  22% { opacity: 1; transform: translate(0, 0); }
+  29% { opacity: 1; transform: translate(-1px, -2px); }
+}
+@keyframes companion-crystal {
+  0%, 20%, 46%, 100% { transform: translateY(0); }
+  26%, 40% { transform: translateY(1px); }
+}
+@keyframes companion-glint {
+  0%, 25%, 41%, 100% { opacity: 0; transform: translate(0, 0); }
+  26%, 32% { opacity: 1; transform: translate(0, 0); }
+  36%, 40% { opacity: 1; transform: translate(1px, -1px); }
+}
+@keyframes companion-star-one {
+  0%, 20%, 44%, 100% { transform: translateY(0); }
+  28%, 36% { transform: translateY(-1px); }
+}
+@keyframes companion-star-two {
+  0%, 24%, 48%, 100% { transform: translateY(0); }
+  32%, 40% { transform: translateY(1px); }
+}
+
+/* An existing evolution achievement gets two little hops, then returns to still. */
+.evolution-burst .rewardportrait .companion-pose {
+  animation: companion-happy-hop 1.4s steps(1, end) 1;
+}
+.evolution-burst .rewardportrait .companion-eyes-open,
+.evolution-burst .rewardportrait .companion-mouth {
+  animation: companion-happy-hide 1.4s steps(1, end) 1;
+}
+.evolution-burst .rewardportrait .companion-eyes-happy,
+.evolution-burst .rewardportrait .companion-smile {
+  animation: companion-happy-show 1.4s steps(1, end) 1;
+}
+@keyframes companion-happy-hop {
+  0%, 42%, 86%, 100% { transform: translateY(0); }
+  12%, 30%, 56%, 72% { transform: translateY(-2px); }
+  20%, 64% { transform: translateY(-3px); }
+}
+@keyframes companion-happy-hide { 0%, 85% { opacity: 0; } 86%, 100% { opacity: 1; } }
+@keyframes companion-happy-show { 0%, 85% { opacity: 1; } 86%, 100% { opacity: 0; } }
+
+/* No loops behind a modal or in a hidden browser tab. No timers or score effects. */
+html[data-companion-motion="paused"] .companion-art * { animation-play-state: paused; }
+html:has(dialog[open]) #companionButton .companion-art * { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  #companionButton .companion-art *,
+  .evolution-burst .rewardportrait .companion-art * { animation: none !important; transform: none !important; }
+  #companionButton .companion-bubbles,
+  #companionButton .companion-glint { opacity: 0; }
+  .evolution-burst .rewardportrait .companion-eyes-open,
+  .evolution-burst .rewardportrait .companion-mouth { opacity: 0; }
+  .evolution-burst .rewardportrait .companion-eyes-happy,
+  .evolution-burst .rewardportrait .companion-smile { opacity: 1; }
+}
